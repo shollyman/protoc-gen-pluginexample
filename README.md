@@ -2,8 +2,6 @@
 
 This repo is a quick and dirty demonstrate around developing a protobuf plugin.
 
-The simplest way to generate a go binary is to CD to this directory and invoke
-
 ## quick and dirty setup
 ```
 $ cd <this directory>
