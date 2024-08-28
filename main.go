@@ -118,9 +118,9 @@ func recordStats(req *pluginpb.CodeGeneratorRequest) (*pluginpb.CodeGeneratorRes
 			stats.NumMethods = stats.NumMethods + len(srv.GetMethod())
 		}
 		for _, msg := range f.GetMessageType() {
-			// note: this doesn't correctly attribute nested messages (messages defined inside another message)
-			stats.NumMessages = stats.NumMessages + 1
-			stats.NumFields = stats.NumFields + len(msg.GetField())
+			mCount, fCount := computeMessageStats(msg)
+			stats.NumMessages = stats.NumMessages + mCount
+			stats.NumFields = stats.NumFields + fCount
 		}
 	}
 
@@ -136,6 +136,21 @@ func recordStats(req *pluginpb.CodeGeneratorRequest) (*pluginpb.CodeGeneratorRes
 		Name:    proto.String("request_stats.txt"),
 		Content: proto.String(buf.String()),
 	}, nil
+}
+
+// computeMessageStats computes the numbers of messages and fields for a given
+// message, including the stats for all nested message definitions.
+//
+// It returns the aggregated message count, and aggregated field count.
+func computeMessageStats(in *descriptorpb.DescriptorProto) (int, int) {
+	numMessages := 1
+	numFields := len(in.GetField())
+	for _, child := range in.GetNestedType() {
+		cMessages, cFields := computeMessageStats(child)
+		numMessages = numMessages + cMessages
+		numFields = numFields + cFields
+	}
+	return numMessages, numFields
 }
 
 // generateGraph is a very naive attempt to produce an entity graph for the provided request.
