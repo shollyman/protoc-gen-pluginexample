@@ -29,10 +29,17 @@ message Person {
 }
 
 message AddressInfo {
+
+    message ZipCode {
+        string zip = 1;
+        optional string plus_code = 2;
+    }
+
     string city = 1;
     string state = 2;
     string country = 3;
     string planet = 4;
+    ZipCode zip_code = 5;
 }
 
 message GetPersonRequest {
