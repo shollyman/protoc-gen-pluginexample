@@ -14,13 +14,13 @@ $ export PATH=$(pwd):$PATH
 generate go and python bindings
 ```
 mkdir output_basic
-protoc -go_out=output_basic -python_out=output_basic testdata/person.proto
+protoc --go_out=output_basic --python_out=output_basic testdata/person.proto
 ```
 
 invoke the test plugin
 ```
 mkdir output_more
-protoc -pluginexample_out=output_more testdata/person.proto
+protoc --pluginexample_out=output_more testdata/person.proto
 ```
 
 
