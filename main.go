@@ -24,6 +24,7 @@ import (
 
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/pluginpb"
 )
 
@@ -73,6 +74,13 @@ func processRequest(req *pluginpb.CodeGeneratorRequest) (*pluginpb.CodeGenerator
 
 	// now, walk the contents of the request to gather basic stats
 	f, err = recordStats(req)
+	if err != nil {
+		return nil, fmt.Errorf("recordRequest failed: %w", err)
+	}
+	resp.File = append(resp.File, f)
+
+	// now, walk the produce an entity graph in graphviz dotfile format.
+	f, err = generateGraph(req)
 	if err != nil {
 		return nil, fmt.Errorf("recordRequest failed: %w", err)
 	}
@@ -128,4 +136,52 @@ func recordStats(req *pluginpb.CodeGeneratorRequest) (*pluginpb.CodeGeneratorRes
 		Name:    proto.String("request_stats.txt"),
 		Content: proto.String(buf.String()),
 	}, nil
+}
+
+// generateGraph is a very naive attempt to produce an entity graph for the provided request.
+// It produces a dot file, which can be used by graphviz to produce an image.
+func generateGraph(req *pluginpb.CodeGeneratorRequest) (*pluginpb.CodeGeneratorResponse_File, error) {
+	nodeBuf := new(bytes.Buffer)
+	vertexBuf := new(bytes.Buffer)
+	// First, add RPC entries
+	for _, f := range req.GetProtoFile() {
+		for _, srv := range f.GetService() {
+			qService := fmt.Sprintf(".%s.%s", f.GetPackage(), srv.GetName())
+			// write service node
+			fmt.Fprintf(nodeBuf, "%q [shape=diamond]\n", qService)
+			for _, meth := range srv.GetMethod() {
+				qName := fmt.Sprintf("%s.%s", qService, meth.GetName())
+				// write method node info
+				fmt.Fprintf(nodeBuf, "%q [shape=circle]\n", qName)
+				// write link info
+				fmt.Fprintf(vertexBuf, "%q -> %q [style=dashed]\n", qService, qName)
+				fmt.Fprintf(vertexBuf, "%q -> %q [style=dashed, color=red]\n", qName, meth.GetInputType())
+				fmt.Fprintf(vertexBuf, "%q -> %q [style=dashed, color=blue]\n", qName, meth.GetOutputType())
+			}
+		}
+
+		// Now, build message graph
+		for _, m := range f.GetMessageType() {
+			generateGraphMessages(m, fmt.Sprintf(".%s", f.GetPackage()), nodeBuf, vertexBuf)
+		}
+	}
+
+	return &pluginpb.CodeGeneratorResponse_File{
+		Name:    proto.String("entity_graph.dot"),
+		Content: proto.String(fmt.Sprintf("digraph entities {\n\n%s\n%s\n}", nodeBuf.String(), vertexBuf.String())),
+	}, nil
+}
+
+func generateGraphMessages(dp *descriptorpb.DescriptorProto, prefix string, nbuf io.Writer, vbuf io.Writer) {
+	qName := fmt.Sprintf("%s.%s", prefix, dp.GetName())
+	fmt.Fprintf(nbuf, "%q [shape=square]\n", qName)
+	for _, field := range dp.GetField() {
+		if field.GetType() == descriptorpb.FieldDescriptorProto_TYPE_MESSAGE &&
+			field.GetTypeName() != "" {
+			fmt.Fprintf(vbuf, "%q -> %q\n", qName, field.GetTypeName())
+		}
+	}
+	for _, child := range dp.GetNestedType() {
+		generateGraphMessages(child, qName, nbuf, vbuf)
+	}
 }
