@@ -26,5 +26,5 @@ protoc --pluginexample_out=output_more testdata/person.proto
 
 If you have graphviz tooling installed (namely the `dot` CLI), you can render dot graphs as a PNG through something like the following:
 ```
-dot -Tpng output/entity_graph.dot -o output/entity_graph.png
+dot -Tpng output_more/entity_graph.dot -o output_more/entity_graph.png
 ```
